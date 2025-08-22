@@ -1,0 +1,66 @@
+ SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+ 
+/// @title Skill Verification on Blockchain
+contract SkillVerification {
+   address public owner;
+ 
+   struct Skill {
+       address issuer;     // Who verified the skill
+       address candidate;  // Candidate’s address
+       string skillName;   // e.g., "Python Programming"
+       string level;       // e.g., "Beginner, Intermediate, Advanced"
+       uint256 issuedAt;   // Timestamp
+       bool revoked;       // If revoked later
+       bool exists;        // Check if record exists
+   }
+ 
+   mapping(bytes32 => Skill) public skills;  
+ 
+   event SkillIssued(bytes32 skillId, address indexed issuer, address indexed candidate, string skillName);
+   event SkillRevoked(bytes32 skillId, address indexed issuer);
+ 
+   constructor() {
+       owner = msg.sender;
+   }
+ 
+   /// Issue a skill to candidate
+   function issueSkill(address candidate, string memory skillName, string memory level) public {
+       bytes32 skillId = keccak256(abi.encodePacked(candidate, skillName, block.timestamp));
+       require(!skills[skillId].exists, "Skill already exists");
+ 
+       skills[skillId] = Skill({
+           issuer: msg.sender,
+           candidate: candidate,
+           skillName: skillName,
+           level: level,
+           issuedAt: block.timestamp,
+           revoked: false,
+           exists: true
+       });
+ 
+       emit SkillIssued(skillId, msg.sender, candidate, skillName);
+   }
+ 
+   /// Revoke a skill
+   function revokeSkill(bytes32 skillId) public {
+       require(skills[skillId].exists, "Skill does not exist");
+       require(skills[skillId].issuer == msg.sender, "Not authorized");
+       skills[skillId].revoked = true;
+       emit SkillRevoked(skillId, msg.sender);
+   }
+ 
+   /// Verify a skill
+   function verifySkill(bytes32 skillId) public view returns (
+       address issuer,
+       address candidate,
+       string memory skillName,
+       string memory level,
+       bool valid
+   ) {
+       require(skills[skillId].exists, "Skill not found");
+       Skill memory s = skills[skillId];
+       return (s.issuer, s.candidate, s.skillName, s.level, !s.revoked);
+   }
+}
+ 
